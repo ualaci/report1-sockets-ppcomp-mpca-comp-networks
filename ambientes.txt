@@ -1,0 +1,19 @@
+# Tabela de ambientes
+# Formato:
+#     <Código(int)>, <Descrição(string)>
+#
+1,Sala
+2,Quarto 1
+3,Quarto 2
+4,Quarto 3
+5,Suite
+6,Banheiro Suite
+7,Banheiro 1
+8,Banheiro 2
+9,Varanda
+10,Cozinha
+11,Corredor 1
+12,Corredor 2
+13,Garagem
+14,Escritorio
+15,Copa

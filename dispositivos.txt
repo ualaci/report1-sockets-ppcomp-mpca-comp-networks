@@ -1,0 +1,7 @@
+# Tipos de dispositivos
+# Formato:
+#     <Código(int)>,<Tipo(char)>,<Descrição(string)>
+#
+1,L,Lâmpada
+2,S,Sensor de Presença
+3,T,Termômetro
