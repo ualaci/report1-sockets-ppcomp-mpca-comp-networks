@@ -30,6 +30,9 @@ class RoomItem():
 		self.roomID = roomID
 		self.roomName = roomName
 		self.lampQueueList = {}
+		self.fanQueueList = {}
+		self.currentTemperature = 0.0
+		self.currentPresence = PRESENCA_NAO_DETECTADA
 
 	# Gerar a lista de lâmpadas do ambiente em formato texto
 	def LampListToString(self):
@@ -60,6 +63,29 @@ class RoomItem():
 	def Sensor(self, command):
 		for deviceID, lampQueue in self.lampQueueList.items():
 			lampQueue.put(int(command))
+
+	def AddFan(self, deviceID, fanQueue):
+		print(f'Adicionando ventilador ID={deviceID} no ambiente {self.roomName}')
+		self.fanQueueList.update({deviceID: fanQueue})
+
+	def DelFan(self, deviceID):
+		print(f'Removendo ventilador ID={deviceID} do ambiente {self.roomName}')
+		if deviceID in self.fanQueueList:
+			self.fanQueueList.pop(deviceID)
+
+	def CheckFan(self):
+		if self.currentPresence == PRESENCA_DETECTADA and self.currentTemperature > 25.0:
+			speed = VENTILADOR_VELOCIDADE_1
+			if self.currentTemperature > 30.0:
+				speed = VENTILADOR_VELOCIDADE_3
+			elif self.currentTemperature > 27.0:
+				speed = VENTILADOR_VELOCIDADE_2
+			for deviceID, fanQueue in self.fanQueueList.items():
+				fanQueue.put(speed)
+		else:
+			for deviceID, fanQueue in self.fanQueueList.items():
+				fanQueue.put(VENTILADOR_DESLIGADO)
+
 
 # Objeto contendo os tipos catalogados
 class TypeItem():

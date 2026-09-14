@@ -84,13 +84,19 @@ def WorkSelectRoom(device, msg, controlQueue):
 			# Iniciar aguardando solicitação do controle na fila, depois recebemos a mensagem
 			WaitLampQueue(device)
 			return SM_CONECTADO_LAMPADA
+		elif device.typeCode == COD_VENTILADOR:
+			device.lampQueue = queue.Queue()
+			print('Enviando mensagem de novo ventilador para a fila do controle')
+			controlQueue.put(MonitorItem(device.ID, device.typeCode, device.roomID, INCLUIR_VENTILADOR, device.lampQueue))
+			WaitFanQueue(device)
+			return SM_CONECTADO_VENTILADOR
 		else:
 			return SM_CONECTADO_SENSOR
 	else:
 		# Falha na seleção, envia status
 		roomID = f'{msg.roomID}'
 		msg = MessageStatus()
-		sendMessage(device, msg.pack(0, ERRO_AMBIENTE_INVALIDO))
+		SendMessage(device, msg.pack(0, ERRO_AMBIENTE_INVALIDO))
 		print(device.toString() + ': Ambiente inválido (código={roomID})')
 		return SM_DESCONECTAR
 
@@ -117,7 +123,7 @@ def WorkLamp(device, msg):
 	if msg.deviceID != device.ID:
 		# ID do dispositivo enviado não é o mesmo que foi registrado
 		msg = MessageStatus()
-		sendMessage(device, msg.pack(device.ID, ERRO_ID_DE_DISPOSITIVO_INVALIDO))
+		SendMessage(device, msg.pack(device.ID, ERRO_ID_DE_DISPOSITIVO_INVALIDO))
 		print(device.toString() + ': Cliente com ID inválido, esperava {device.ID}, recebi {msg.deviceID}')
 		return SM_DESCONECTAR
 	# Ao enviar uma solicitação de acionamento recebemos um status de volta
@@ -129,11 +135,37 @@ def WorkLamp(device, msg):
 	WaitLampQueue(device)
 	return SM_CONECTADO_LAMPADA
 
+
+def WaitFanQueue(device):
+	print(f'Aguardando evento, ventilador {device.ID}')
+	while True:
+		speed = device.lampQueue.get()
+		if device.value != speed:
+			device.value = speed
+			break
+	print(device.toString() + f': Alterando velocidade do ventilador para {speed}')
+	msg = MessageFan()
+	SendMessage(device, msg.pack(device.ID, speed))
+
+def WorkFan(device, msg):
+	if msg.deviceID != device.ID:
+		msg_err = MessageStatus()
+		SendMessage(device, msg_err.pack(device.ID, ERRO_ID_DE_DISPOSITIVO_INVALIDO))
+		print(device.toString() + f': Cliente com ID inválido, esperava {device.ID}, recebi {msg.deviceID}')
+		return SM_DESCONECTAR
+	if msg.code == MSG_STATUS:
+		if msg.status == ACAO_EXECUTADA:
+			print(device.toString() + ': Ação no ventilador executada.')
+	else:
+		print(device.toString() + f': Mensagem não esperada (código={msg.code})')
+	WaitFanQueue(device)
+	return SM_CONECTADO_VENTILADOR
+
 def WorkSensor(device, msg, controlQueue):
 	if msg.deviceID != device.ID:
 		# ID do dispositivo enviado não é o mesmo que foi registrado
 		msg = MessageStatus()
-		sendMessage(device, msg.pack(device.ID, ERRO_ID_DE_DISPOSITIVO_INVALIDO))
+		SendMessage(device, msg.pack(device.ID, ERRO_ID_DE_DISPOSITIVO_INVALIDO))
 		print(device.toString() + ': Cliente com ID inválido, esperava {device.ID}, recebi {msg.deviceID}')
 		return SM_DESCONECTAR
 	# Atualizando os valores recebidos
@@ -148,7 +180,7 @@ def WorkSensor(device, msg, controlQueue):
 	# 4) Valor que foi lido pelo sensor                #
 	####################################################
 	# Se um sensor de presença foi acionado, informar ao controle
-	if device.typeCode == COD_SENSOR_PRESENCA:
+	if device.typeCode == COD_SENSOR_PRESENCA or device.typeCode == COD_TERMOMETRO:
 		print('Enviando mensagem do sensor para a fila do controle')
 		controlQueue.put(MonitorItem(device.ID, device.typeCode, device.roomID, device.value, None))
 	# Informando que a leitura foi recebida
@@ -182,7 +214,7 @@ def DeviceThread(connection, clientIP, controlQueue):
 			# (SM_INCIALIZANDO) --> (SM_SELECIONA AMBIENTE)< 
 			#                                               \--> (SM_CONECTADO_LAMPADA)
 			print("Mensagem recebida: ", clientIP, msg.toString())
-			expectTable = [MSG_REGISTRO,MSG_SELECIONA_AMBIENTE,MSG_SENSOR,MSG_STATUS]
+			expectTable = [MSG_REGISTRO,MSG_SELECIONA_AMBIENTE,MSG_SENSOR,MSG_STATUS,MSG_STATUS]
 			expectMessage = expectTable[deviceStatus-1]
 			# verifica se a mensagem recebida era esperada
 			if expectMessage == msg.code:
@@ -195,6 +227,8 @@ def DeviceThread(connection, clientIP, controlQueue):
 					deviceStatus = WorkLamp(device, msg)
 				elif deviceStatus == SM_CONECTADO_SENSOR:
 					deviceStatus = WorkSensor(device, msg, controlQueue)
+				elif deviceStatus == SM_CONECTADO_VENTILADOR:
+					deviceStatus = WorkFan(device, msg)
 				if deviceStatus == SM_DESCONECTAR:
 					break
 			else:
@@ -206,5 +240,7 @@ def DeviceThread(connection, clientIP, controlQueue):
 		if device.typeCode == COD_LAMPADA:
 			# Se for uma lâmpada, remove o dispositivo da lista do ambiente
 			controlQueue.put(MonitorItem(device.ID, device.typeCode, device.roomID, EXCLUIR_LAMPADA, device.lampQueue))
+		elif device.typeCode == COD_VENTILADOR:
+			controlQueue.put(MonitorItem(device.ID, device.typeCode, device.roomID, EXCLUIR_VENTILADOR, device.lampQueue))
 	print(f'Desconectado: {device.clientIP}')
 	connection.close()

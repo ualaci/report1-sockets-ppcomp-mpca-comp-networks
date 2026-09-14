@@ -41,10 +41,23 @@ def GeneralControl(controlQueue, roomsList, typesList):
 				if monitorItem.command == EXCLUIR_LAMPADA:
 					# Remove a lâmpada do registro
 					roomItem.DelLamp(monitorItem.deviceID)
+
+			if monitorItem.deviceTypeCode == COD_VENTILADOR:
+				if monitorItem.command == INCLUIR_VENTILADOR:
+					roomItem.AddFan(monitorItem.deviceID, monitorItem.lampQueue)
+				if monitorItem.command == EXCLUIR_VENTILADOR:
+					roomItem.DelFan(monitorItem.deviceID)
+
+			if monitorItem.deviceTypeCode == COD_TERMOMETRO:
+				roomItem.currentTemperature = monitorItem.command
+				roomItem.CheckFan()
+
 			# SENSOR DE PRESENÇA <- Indica que o sinal foi recebido, acionar as lâmpadas
 			if monitorItem.deviceTypeCode == COD_SENSOR_PRESENCA:
 				# envia o comando para apagar
 				roomItem.Sensor(monitorItem.command)
+				roomItem.currentPresence = monitorItem.command
+				roomItem.CheckFan()
 		lst = '------------------------------------------------------\n'
 		for roomID, roomItem in GetRoomDict().items():
 			roomLampList = roomItem.toString()
