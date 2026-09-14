@@ -282,6 +282,33 @@ class MessageLamp(Message):
 	def unpack(self, msg):
 		code, self.dateTime, self.deviceID, self.action = struct.unpack(self.mask, msg)
 
+class MessageFan(Message):
+
+	# Campos da mensagem
+	deviceID = None	# 4 bytes - unsigned int
+	speed = None		# 1 byte - unsigned char
+
+	def __init__(self):
+		self.code = MSG_VENTILADOR
+		self.mask = '!BdIB'
+		self.subject = 'Ventilador'
+
+	def toStringMsg(self):
+		if(self.deviceID != None and self.speed != None):
+			return f"Velocidade: {self.speed}"
+		else:
+			return 'Mensagem não inicializada'
+
+	def pack(self, deviceID, speed):
+		self.dateTime = unixTimeStamp()
+		self.deviceID = deviceID
+		self.speed = speed
+		return struct.pack(self.mask, self.code, self.dateTime, self.deviceID, self.speed)
+
+	def unpack(self, msg):
+		code, self.dateTime, self.deviceID, self.speed = struct.unpack(self.mask, msg)
+
+
 # cria um objeto contendo a primeira mensagem do buffer
 # retorna (1) None se não existir uma mensagem completa ou buffer vazio
 #         (2) o que restou no buffer após retirar a primeira mensagem
@@ -291,9 +318,9 @@ def getMessage(buffer):
 	codeBin = buffer[:1]
 	if len(codeBin) == 1:
 		code, = struct.unpack('!B', codeBin)
-		if code >= 1 and code <= 6:
+		if code >= 1 and code <= 7:
 			# tamanho de cada tipo de mensagem
-			msgsSize = [15,10,11,11,17,14]
+			msgsSize = [15,10,11,11,17,14,14]
 			msgSize = msgsSize[code-1]
 			# caso especial, mensagem com a lista possui tamanho variável
 			if code == MSG_LISTA_AMBIENTES:
@@ -319,6 +346,8 @@ def getMessage(buffer):
 				msg = MessageSensor()
 			if code == MSG_LAMPADA:
 				msg = MessageLamp()
+			if code == MSG_VENTILADOR:
+				msg = MessageFan()
 			# decodifica a mensagem recebida
 			msg.unpack(msgData)
 		else:
