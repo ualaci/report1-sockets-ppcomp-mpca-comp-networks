@@ -5,3 +5,4 @@
 1,L,Lâmpada
 2,S,Sensor de Presença
 3,T,Termômetro
+4,V,Ventilador de Teto
