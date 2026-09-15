@@ -27,6 +27,30 @@ Como 1 `send()` não garante 1 `recv()` correspondente na outra ponta, o código
 
 ## Arquitetura e Diagramas de Fluxo
 
+```mermaid
+flowchart TD
+    TS[Thread Servidor] -->|Inicia Thread| TC[Thread de Controle]
+    
+    TS -->|Inicia DeviceThread| SP[Sensores de Presença]
+    TS -->|Inicia DeviceThread| ST[Sensores de Temperatura]
+    
+    %% O uso de 3 traços empurra Lâmpadas e Ventiladores para uma camada inferior
+    TS -- Inicia DeviceThread ---> L[Lâmpadas]
+    TS -- Inicia DeviceThread ---> V[Ventiladores de Teto]
+
+    SP -.->|Fila: Envia Presença 0/1| TC
+    ST -.->|Fila: Envia Temperatura| TC
+    
+    L -.->|Fila: Registro da Lâmpada| TC
+    TC -.->|Fila: Comando p/ Lâmpada| L
+    
+    V -.->|Fila: Registro do Ventilador| TC
+    TC -.->|Fila: Comando Velocidade 0-3| V
+
+    style TS fill:#e1f5fe,stroke:#039be5,stroke-width:2px,color:#000000
+    style TC fill:#fff3e0,stroke:#fb8c00,stroke-width:2px,color:#000000
+```
+
 O sistema adota um modelo Cliente-Servidor multithread, permitindo que vários dispositivos operem concorrentemente sem bloquear o processamento uns dos outros.
 
 ### As Threads do Sistema
@@ -49,6 +73,36 @@ O sistema adota um modelo Cliente-Servidor multithread, permitindo que vários d
    - Encaminha comandos específicos para os dispositivos (ex: mandando todas as lâmpadas de uma sala ligarem).
 
 ### Comunicação Inter-Thread e Filas (Queues)
+
+```mermaid
+%%{init: {'themeVariables': {'noteTextColor': '#000000', 'noteBkgColor': '#fff3e0'}}}%%
+sequenceDiagram
+    participant CT as Cliente (Termômetro)
+    participant CP as Cliente (Presença)
+    participant TT as Thread Temperatura
+    participant TP as Thread Presença
+    participant GC as Thread GeneralControl
+    participant TL as Thread Lâmpada
+    participant TV as Thread Ventilador
+    participant CL as Cliente (Lâmpada)
+    participant CV as Cliente (Ventilador)
+
+    CP->>TP: TCP: Envia 1 (Presença)
+    TP->>GC: Fila Controle: MonitorItem(Presença=1)
+    
+    CT->>TT: TCP: Envia 28.5 (Temperatura)
+    TT->>GC: Fila Controle: MonitorItem(Temp=28.5)
+    
+    rect rgba(128, 128, 128, 0.15)
+        Note over GC: GeneralControl avalia as regras:<br/>RoomItem.Sensor() e RoomItem.CheckFan()
+        GC->>TL: Fila Lâmpada: Ação = 1 (Ligar)
+        GC->>TV: Fila Ventilador: Ação = 2 (Velocidade 2)
+    end
+    
+    TL->>CL: TCP: Comando Ligar
+    TV->>CV: TCP: Comando Velocidade 2
+```
+
 Para garantir que múltiplas threads não manipulem as mesmas variáveis ao mesmo tempo (o que causaria "Race Conditions" e corrupção de memória), a comunicação entre a **DeviceThread** e a **GeneralControl** é feita via Filas **(`queue.Queue`)**. 
 Filas são estruturas "Thread-Safe". 
 - Quando uma DeviceThread de Presença detecta movimento, ela empacota a informação em um objeto e dá um `.put()` na Fila Geral de Controle.
@@ -57,6 +111,28 @@ Filas são estruturas "Thread-Safe".
 ---
 
 ## O Protocolo de Comunicação
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente (Qualquer Dispositivo)
+    participant S as Servidor (Main Thread)
+    participant GC as Thread GeneralControl
+    
+    C->>S: Conecta no Socket TCP
+    Note over C,S: Handshake de Inicialização
+    C->>S: MSG_REGISTRO (Envia o Tipo: L, S, T ou V)
+    S->>S: Valida o Tipo
+    S->>C: MSG_LISTA_AMBIENTES (Ambientes da casa)
+    
+    C->>C: Usuário escolhe via Terminal
+    C->>S: MSG_SELECIONA_AMBIENTE (ID do Ambiente)
+    
+    S->>S: Lock() para gerar um ID Único (Thread-safe)
+    S->>GC: Envia requisição INCLUIR_LAMPADA / VENTILADOR
+    S->>C: MSG_STATUS (Sucesso, devolve o ID gerado)
+    
+    Note over C,S: A partir daqui o cliente escuta ou envia comandos
+```
 
 O fluxo de mensagens entre cliente e servidor tem uma ordem fixa para registro e identificação, antes de começar a troca de dados operacionais.
 

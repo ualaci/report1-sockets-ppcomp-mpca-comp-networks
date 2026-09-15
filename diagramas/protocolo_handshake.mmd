@@ -1,0 +1,19 @@
+sequenceDiagram
+    participant C as Cliente (Qualquer Dispositivo)
+    participant S as Servidor (Main Thread)
+    participant GC as Thread GeneralControl
+    
+    C->>S: Conecta no Socket TCP
+    Note over C,S: Handshake de Inicialização
+    C->>S: MSG_REGISTRO (Envia o Tipo: L, S, T ou V)
+    S->>S: Valida o Tipo
+    S->>C: MSG_LISTA_AMBIENTES (Ambientes da casa)
+    
+    C->>C: Usuário escolhe via Terminal
+    C->>S: MSG_SELECIONA_AMBIENTE (ID do Ambiente)
+    
+    S->>S: Lock() para gerar um ID Único (Thread-safe)
+    S->>GC: Envia requisição INCLUIR_LAMPADA / VENTILADOR
+    S->>C: MSG_STATUS (Sucesso, devolve o ID gerado)
+    
+    Note over C,S: A partir daqui o cliente escuta ou envia comandos

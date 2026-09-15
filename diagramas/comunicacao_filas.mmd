@@ -1,0 +1,26 @@
+%%{init: {'themeVariables': {'noteTextColor': '#000000', 'noteBkgColor': '#fff3e0'}}}%%
+sequenceDiagram
+    participant CT as Cliente (Termômetro)
+    participant CP as Cliente (Presença)
+    participant TT as Thread Temperatura
+    participant TP as Thread Presença
+    participant GC as Thread GeneralControl
+    participant TL as Thread Lâmpada
+    participant TV as Thread Ventilador
+    participant CL as Cliente (Lâmpada)
+    participant CV as Cliente (Ventilador)
+
+    CP->>TP: TCP: Envia 1 (Presença)
+    TP->>GC: Fila Controle: MonitorItem(Presença=1)
+    
+    CT->>TT: TCP: Envia 28.5 (Temperatura)
+    TT->>GC: Fila Controle: MonitorItem(Temp=28.5)
+    
+    rect rgba(128, 128, 128, 0.15)
+        Note over GC: GeneralControl avalia as regras:<br/>RoomItem.Sensor() e RoomItem.CheckFan()
+        GC->>TL: Fila Lâmpada: Ação = 1 (Ligar)
+        GC->>TV: Fila Ventilador: Ação = 2 (Velocidade 2)
+    end
+    
+    TL->>CL: TCP: Comando Ligar
+    TV->>CV: TCP: Comando Velocidade 2
