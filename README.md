@@ -31,21 +31,22 @@ Como 1 `send()` não garante 1 `recv()` correspondente na outra ponta, o código
 flowchart TD
     TS[Thread Servidor] -->|Inicia Thread| TC[Thread de Controle]
     
+    %% Atuadores (duas vias) declarados primeiro para ficarem alinhados abaixo do Controle
+    TS --->|Inicia DeviceThread| L[Lâmpadas]
+    TS --->|Inicia DeviceThread| V[Ventiladores de Teto]
+
+    %% Sensores (via única) declarados depois, para ocuparem a direita
     TS -->|Inicia DeviceThread| SP[Sensores de Presença]
     TS -->|Inicia DeviceThread| ST[Sensores de Temperatura]
-    
-    %% O uso de 3 traços empurra Lâmpadas e Ventiladores para uma camada inferior
-    TS -- Inicia DeviceThread ---> L[Lâmpadas]
-    TS -- Inicia DeviceThread ---> V[Ventiladores de Teto]
 
-    SP -.->|Fila: Envia Presença 0/1| TC
-    ST -.->|Fila: Envia Temperatura| TC
-    
     L -.->|Fila: Registro da Lâmpada| TC
     TC -.->|Fila: Comando p/ Lâmpada| L
     
     V -.->|Fila: Registro do Ventilador| TC
     TC -.->|Fila: Comando Velocidade 0-3| V
+
+    SP -.->|Fila: Envia Presença 0/1| TC
+    ST -.->|Fila: Envia Temperatura| TC
 
     style TS fill:#e1f5fe,stroke:#039be5,stroke-width:2px,color:#000000
     style TC fill:#fff3e0,stroke:#fb8c00,stroke-width:2px,color:#000000
