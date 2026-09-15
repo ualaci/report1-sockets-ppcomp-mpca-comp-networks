@@ -31,9 +31,13 @@ Como 1 `send()` não garante 1 `recv()` correspondente na outra ponta, o código
 flowchart TD
     TS[Thread Servidor] -->|Inicia Thread| TC[Thread de Controle]
     
-    %% Atuadores (duas vias) declarados primeiro para ficarem alinhados abaixo do Controle
-    TS --->|Inicia DeviceThread| L[Lâmpadas]
-    TS --->|Inicia DeviceThread| V[Ventiladores de Teto]
+    %% Atuadores (duas vias) declarados primeiro
+    TS -- Inicia DeviceThread ---> L[Lâmpadas]
+    
+    %% O link invisível (~~~) e o nível 4 (---->) forçam o Ventilador a ficar 
+    %% EXATAMENTE abaixo da Lâmpada, criando curvas simétricas separadas.
+    L ~~~ V[Ventiladores de Teto]
+    TS -- Inicia DeviceThread ----> V
 
     %% Sensores (via única) declarados depois, para ocuparem a direita
     TS -->|Inicia DeviceThread| SP[Sensores de Presença]
