@@ -3,3 +3,4 @@ Fluxogramas.pptx.pdf
 project_details.txt
 Documentacao.pdf
 .gitignore
+__pycache__
